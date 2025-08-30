@@ -75,9 +75,22 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         uint32 blockTimestamp = uint32(block.timestamp % 2**32);
         uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
         {
+            uint multiplier;
+            uint safe_r0;
+            uint safe_r1;
+
+            assembly {
+                let r0_ok := iszero(iszero(_reserve0))
+                let r1_ok := iszero(iszero(_reserve1))
+                let time_ok := iszero(iszero(timeElapsed))
+                multiplier := and(and(r0_ok, r1_ok), time_ok)
+                safe_r0 := add(_reserve0, iszero(_reserve0))
+                safe_r1 := add(_reserve1, iszero(_reserve1))
+            }
+
             // * never overflows, and + overflow is desired
-            price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
-            price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
+            price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(uint112(safe_r0))) * timeElapsed * multiplier;
+            price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(uint112(safe_r1))) * timeElapsed * multiplier;
         }
         reserve0 = uint112(balance0);
         reserve1 = uint112(balance1);
